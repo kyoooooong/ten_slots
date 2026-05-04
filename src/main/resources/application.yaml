@@ -35,6 +35,11 @@ payment:
   gateway:
     timeout-seconds: 10
 
+scheduler:
+  warmup:
+    # 매 분 정각 실행 — 10분 이내 오픈 예정 상품을 Redis에 미리 적재
+    cron: "0 * * * * *"
+
 resilience4j:
   circuitbreaker:
     instances:

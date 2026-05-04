@@ -1,6 +1,7 @@
 package com.tenslots.domain.product;
 
 import com.tenslots.domain.common.BaseEntity;
+import com.tenslots.domain.common.DomainConstants;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,15 +25,15 @@ public class Product extends BaseEntity {
 
     @Id
     @Tsid
-    @Column(length = 13)
+    @Column(length = DomainConstants.TSID_LENGTH)
     @Comment("상품 ID (TSID)")
     private String id;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = DomainConstants.VARCHAR_LENGTH)
     @Comment("상품명")
     private String name;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = DomainConstants.PRICE_PRECISION, scale = DomainConstants.PRICE_SCALE)
     @Comment("가격")
     private BigDecimal price;
 

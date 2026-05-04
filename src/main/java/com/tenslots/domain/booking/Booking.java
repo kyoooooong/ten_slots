@@ -1,6 +1,7 @@
 package com.tenslots.domain.booking;
 
 import com.tenslots.domain.common.BaseEntity;
+import com.tenslots.domain.common.DomainConstants;
 import com.tenslots.domain.common.InvalidStateTransitionException;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
@@ -25,7 +26,7 @@ public class Booking extends BaseEntity {
 
     @Id
     @Tsid
-    @Column(length = 13)
+    @Column(length = DomainConstants.TSID_LENGTH)
     @Comment("예약 ID (TSID)")
     private String id;
 
@@ -33,7 +34,7 @@ public class Booking extends BaseEntity {
     @Comment("사용자 ID")
     private Long userId;
 
-    @Column(length = 13, nullable = false)
+    @Column(length = DomainConstants.TSID_LENGTH, nullable = false)
     @Comment("상품 ID")
     private String productId;
 

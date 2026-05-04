@@ -1,6 +1,7 @@
 package com.tenslots.domain.payment;
 
 import com.tenslots.domain.common.BaseEntity;
+import com.tenslots.domain.common.DomainConstants;
 import com.tenslots.domain.common.InvalidStateTransitionException;
 import io.hypersistence.utils.hibernate.id.Tsid;
 import jakarta.persistence.*;
@@ -25,11 +26,11 @@ public class Payment extends BaseEntity {
 
     @Id
     @Tsid
-    @Column(length = 13)
+    @Column(length = DomainConstants.TSID_LENGTH)
     @Comment("결제 ID (TSID)")
     private String id;
 
-    @Column(length = 13, nullable = false)
+    @Column(length = DomainConstants.TSID_LENGTH, nullable = false)
     @Comment("예약 ID")
     private String bookingId;
 
@@ -38,7 +39,7 @@ public class Payment extends BaseEntity {
     @Comment("결제 수단")
     private PaymentMethod method;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = DomainConstants.PRICE_PRECISION, scale = DomainConstants.PRICE_SCALE)
     @Comment("결제 금액")
     private BigDecimal amount;
 
@@ -47,11 +48,11 @@ public class Payment extends BaseEntity {
     @Comment("결제 상태 (REQUESTED/APPROVED/CONFIRMED/FAILED)")
     private PaymentStatus status;
 
-    @Column(length = 255)
+    @Column(length = DomainConstants.VARCHAR_LENGTH)
     @Comment("PG사 거래번호")
     private String pgTransactionId;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = DomainConstants.VARCHAR_LENGTH)
     @Comment("PG사 멱등키")
     private String pgIdempotencyKey;
 

@@ -1,6 +1,7 @@
 package com.tenslots.domain.stock;
 
 import com.tenslots.domain.common.BaseTimeEntity;
+import com.tenslots.domain.common.DomainConstants;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
@@ -12,7 +13,7 @@ import org.hibernate.annotations.Comment;
 public class Stock extends BaseTimeEntity {
 
     @Id
-    @Column(length = 13)
+    @Column(length = DomainConstants.TSID_LENGTH)
     @Comment("상품 ID (product.id 참조)")
     private String productId;
 

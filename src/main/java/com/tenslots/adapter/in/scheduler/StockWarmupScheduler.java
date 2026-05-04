@@ -20,7 +20,7 @@ public class StockWarmupScheduler {
     private final LoadStockPort loadStockPort;
     private final StockPort stockPort;
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "${scheduler.warmup.cron}")
     public void warmup() {
         // DB 커넥션을 Redis I/O 대기 동안 점유하지 않도록 DB 조회 완료 후 트랜잭션 종료
         List<Product> products = warmupProductLoader.loadScheduledProducts();
