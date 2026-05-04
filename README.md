@@ -103,19 +103,55 @@ POST /api/v1/booking
   └─ [6] 예약 + 결제 확정        단일 TX REQUIRED → 원자적 커밋
 ```
 
+### Sequence Diagram
+
+```
+Client          Nginx           BookingService      Redis           MySQL(DB)       PG
+  │               │                   │               │                │             │
+  │─POST /booking▶│                   │               │                │             │
+  │               │──rate limit───────│               │                │             │
+  │               │  (10r/s,burst30)  │               │                │             │
+  │               │                   │               │                │             │
+  │               │                   │─SET NX───────▶│                │             │
+  │               │                   │◀─acquired─────│                │             │
+  │               │                   │               │                │             │
+  │               │                   │─findById──────────────────────▶│             │
+  │               │                   │◀─product──────────────────────│             │
+  │               │                   │  (검증: openAt, totalAmount)   │             │
+  │               │                   │               │                │             │
+  │               │                   │─Lua DECR─────▶│                │             │
+  │               │                   │  (CB OPEN시)──────────────────▶│ @Version    │
+  │               │                   │◀─result───────│                │             │
+  │               │                   │               │                │             │
+  │               │                   │─save(PENDING)─────────────────▶│ REQUIRES_NEW│
+  │               │                   │◀─booking──────────────────────│             │
+  │               │                   │               │                │             │
+  │               │                   │─save(REQUESTED)───────────────▶│ REQUIRES_NEW│
+  │               │                   │─process()──────────────────────────────────▶│
+  │               │                   │  (timeout→inquiry)             │            │
+  │               │                   │─save(APPROVED)────────────────▶│ REQUIRES_NEW│
+  │               │                   │               │                │             │
+  │               │                   │─confirm(booking+payment)──────▶│ REQUIRED TX │
+  │               │                   │◀─confirmed────────────────────│             │
+  │               │                   │               │                │             │
+  │◀─201 BOOKING_SUCCESS──────────────│               │                │             │
+```
+
 ---
 
 ## How to Run
 
 ```bash
 # 1. 환경 변수 설정
-cp .env.example .env
-# 아래 항목을 채운다:
-#   SPRING_PROFILES_ACTIVE
-#   SPRING_DATASOURCE_USERNAME / SPRING_DATASOURCE_PASSWORD
-#   MYSQL_ROOT_PASSWORD / MYSQL_DATABASE
-#   DOCKER_DATASOURCE_URL
-#   SPRING_JPA_DDL_AUTO
+cp .sample.env .env
+# 아래 항목을 확인·수정한다:
+#   SPRING_PROFILES_ACTIVE     → local
+#   SPRING_DATASOURCE_USERNAME → DB 사용자명 (Docker: root)
+#   MYSQL_ROOT_PASSWORD        → MySQL root 비밀번호 (Docker: password)
+#   MYSQL_DATABASE             → 데이터베이스명 (Docker: ten_slots)
+#   SPRING_JPA_DDL_AUTO        → update (최초 실행 시 테이블 자동 생성)
+#
+# ※ DOCKER_DATASOURCE_URL 은 .sample.env 기본값 그대로 사용 가능
 
 # 2. 전체 스택 실행
 docker compose up --build
