@@ -9,7 +9,8 @@ import com.tenslots.domain.payment.PaymentStatus;
 import com.tenslots.global.api.code.common.ErrorCode;
 import com.tenslots.global.exception.BusinessException;
 import com.tenslots.global.exception.PaymentTimeoutException;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +19,31 @@ import java.util.List;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CompositePaymentProcessor {
 
     private final PaymentProcessorPort paymentProcessorPort;
     private final SavePaymentPort savePaymentPort;
+
+    // 결제 수단별 성공/실패 카운터 — 특정 수단 집중 실패 시 빠른 감지
+    private final Counter paymentSuccessCounter;
+    private final Counter paymentFailCounter;
+
+    public CompositePaymentProcessor(
+            PaymentProcessorPort paymentProcessorPort,
+            SavePaymentPort savePaymentPort,
+            MeterRegistry meterRegistry
+    ) {
+        this.paymentProcessorPort = paymentProcessorPort;
+        this.savePaymentPort = savePaymentPort;
+        this.paymentSuccessCounter = Counter.builder("payment.result")
+                .tag("result", "success")
+                .description("결제 성공 횟수")
+                .register(meterRegistry);
+        this.paymentFailCounter = Counter.builder("payment.result")
+                .tag("result", "fail")
+                .description("결제 실패 횟수")
+                .register(meterRegistry);
+    }
 
     public List<Payment> process(String bookingId, List<BookingCommand.PaymentDetail> paymentDetails) {
         List<Payment> approved = new ArrayList<>();
@@ -45,6 +66,7 @@ public class CompositePaymentProcessor {
                 if (!result.success()) {
                     payment.fail();
                     savePaymentPort.save(payment);
+                    paymentFailCounter.increment();
                     // 복합 결제 중 하나라도 실패 → 앞서 승인된 결제 전부 취소
                     cancelApproved(approved);
                     throw new BusinessException(ErrorCode.PAYMENT_FAILED);
@@ -53,6 +75,7 @@ public class CompositePaymentProcessor {
                 // REQUIRES_NEW 즉시 커밋 — 외부 TX 롤백과 무관하게 PG 승인 기록 보존
                 payment.approve(result.pgTransactionId());
                 savePaymentPort.save(payment);
+                paymentSuccessCounter.increment();
                 approved.add(payment);
             }
             return approved;

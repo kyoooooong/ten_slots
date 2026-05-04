@@ -19,6 +19,18 @@ spring:
         jdbc:
           time_zone: UTC  # OffsetDateTime/ZonedDateTime을 UTC로 저장·조회 — 서버·DB·애플리케이션 시각 기준 통일
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ten-slots  # Grafana 대시보드에서 애플리케이션 구분용
+
 payment:
   gateway:
     timeout-seconds: 10

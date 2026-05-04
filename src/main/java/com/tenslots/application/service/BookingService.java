@@ -14,7 +14,8 @@ import com.tenslots.domain.product.Product;
 import com.tenslots.application.port.out.StockPort;
 import com.tenslots.global.api.code.common.ErrorCode;
 import com.tenslots.global.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +26,6 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class BookingService implements BookingUseCase {
 
     private final StockPort stockPort;
@@ -36,11 +36,45 @@ public class BookingService implements BookingUseCase {
     private final CompositePaymentProcessor compositePaymentProcessor;
     private final Clock clock;
 
+    // 재고 차감 결과 카운터 — 00시 spike 시 소진 속도 및 fallback 발동 확인
+    private final Counter stockSoldOutCounter;
+    private final Counter bookingConfirmedCounter;
+    private final Counter duplicateRequestCounter;
+
+    public BookingService(
+            StockPort stockPort,
+            IdempotencyPort idempotencyPort,
+            LoadProductPort loadProductPort,
+            SaveBookingPort saveBookingPort,
+            ConfirmBookingPort confirmBookingPort,
+            CompositePaymentProcessor compositePaymentProcessor,
+            Clock clock,
+            MeterRegistry meterRegistry
+    ) {
+        this.stockPort = stockPort;
+        this.idempotencyPort = idempotencyPort;
+        this.loadProductPort = loadProductPort;
+        this.saveBookingPort = saveBookingPort;
+        this.confirmBookingPort = confirmBookingPort;
+        this.compositePaymentProcessor = compositePaymentProcessor;
+        this.clock = clock;
+        this.stockSoldOutCounter = Counter.builder("booking.stock.soldout")
+                .description("재고 소진으로 예약 실패한 횟수")
+                .register(meterRegistry);
+        this.bookingConfirmedCounter = Counter.builder("booking.confirmed")
+                .description("예약 확정 성공 횟수")
+                .register(meterRegistry);
+        this.duplicateRequestCounter = Counter.builder("booking.duplicate")
+                .description("멱등키 중복 차단 횟수")
+                .register(meterRegistry);
+    }
+
     @Override
     public BookingResponse book(BookingCommand command) {
         // 1. 중복 요청 차단 (Redis SET NX)
         if (!idempotencyPort.tryAcquire(command.idempotencyKey())) {
             log.warn("Duplicate request detected - idempotencyKey: {}", command.idempotencyKey());
+            duplicateRequestCounter.increment();
             throw new BusinessException(ErrorCode.DUPLICATE_REQUEST);
         }
 
@@ -66,6 +100,7 @@ public class BookingService implements BookingUseCase {
         // 3. 재고 차감 (Redis Lua → CB → DB Fallback)
         try {
             if (!stockPort.decrease(command.productId())) {
+                stockSoldOutCounter.increment();
                 throw new BusinessException(ErrorCode.STOCK_SOLD_OUT);
             }
         } catch (BusinessException e) {
@@ -107,6 +142,7 @@ public class BookingService implements BookingUseCase {
         approvedPayments.forEach(Payment::confirm);
         Booking confirmed = confirmBookingPort.confirm(booking, approvedPayments);
 
+        bookingConfirmedCounter.increment();
         log.info("Booking confirmed - bookingId: {}", confirmed.getId());
         return BookingResponse.of(confirmed, approvedPayments);
     }

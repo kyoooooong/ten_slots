@@ -5,7 +5,8 @@ import com.tenslots.application.port.out.StockPort;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Primary
 @Component
-@RequiredArgsConstructor
 public class CircuitBreakerStockAdapter implements StockPort {
 
     private static final String CB_NAME = "stockDecrease";
@@ -23,6 +23,23 @@ public class CircuitBreakerStockAdapter implements StockPort {
     private final RedisStockAdapter redisStockAdapter;
     private final DbStockAdapter dbStockAdapter;
     private final CircuitBreakerRegistry circuitBreakerRegistry;
+
+    // Redis 장애 → DB fallback 발동 횟수 — CB OPEN 여부와 함께 장애 감지 지표
+    private final Counter redisFallbackCounter;
+
+    public CircuitBreakerStockAdapter(
+            RedisStockAdapter redisStockAdapter,
+            DbStockAdapter dbStockAdapter,
+            CircuitBreakerRegistry circuitBreakerRegistry,
+            MeterRegistry meterRegistry
+    ) {
+        this.redisStockAdapter = redisStockAdapter;
+        this.dbStockAdapter = dbStockAdapter;
+        this.circuitBreakerRegistry = circuitBreakerRegistry;
+        this.redisFallbackCounter = Counter.builder("stock.redis.fallback")
+                .description("Redis 장애로 DB fallback이 발동된 횟수")
+                .register(meterRegistry);
+    }
 
     @Override
     public boolean decrease(String productId) {
@@ -34,6 +51,7 @@ public class CircuitBreakerStockAdapter implements StockPort {
             cb.acquirePermission();
         } catch (CallNotPermittedException e) {
             log.warn("Circuit breaker OPEN, fallback to DB - productId: {}", productId);
+            redisFallbackCounter.increment();
             return dbStockAdapter.decrease(productId);
         }
 
@@ -49,6 +67,7 @@ public class CircuitBreakerStockAdapter implements StockPort {
         } catch (Exception e) {
             cb.onError(System.nanoTime() - start, TimeUnit.NANOSECONDS, e);
             log.warn("Redis unavailable, fallback to DB - productId: {}, reason: {}", productId, e.getMessage());
+            redisFallbackCounter.increment();
             return dbStockAdapter.decrease(productId);
         }
     }
