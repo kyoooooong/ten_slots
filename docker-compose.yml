@@ -1,0 +1,65 @@
+x-app-env: &app-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+  SPRING_DATASOURCE_URL: ${DOCKER_DATASOURCE_URL}
+  SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+  SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  SPRING_REDIS_HOST: redis
+  SPRING_REDIS_PORT: 6379
+  SPRING_JPA_DDL_AUTO: ${SPRING_JPA_DDL_AUTO}
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+
+  app1:
+    build: .
+    environment:
+      <<: *app-env
+      # 분산 환경에서 TSID 노드 ID를 인스턴스별로 고유하게 설정해 ID 충돌 방지
+      JAVA_TOOL_OPTIONS: "-Dtsid.node=1"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app2:
+    build: .
+    environment:
+      <<: *app-env
+      JAVA_TOOL_OPTIONS: "-Dtsid.node=2"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
