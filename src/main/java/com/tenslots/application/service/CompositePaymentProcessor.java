@@ -5,6 +5,7 @@ import com.tenslots.application.port.out.PaymentGatewayPort;
 import com.tenslots.application.port.out.PaymentProcessorPort;
 import com.tenslots.application.port.out.SavePaymentPort;
 import com.tenslots.domain.payment.Payment;
+import com.tenslots.domain.payment.PaymentMethod;
 import com.tenslots.domain.payment.PaymentStatus;
 import com.tenslots.global.api.code.common.ErrorCode;
 import com.tenslots.global.exception.BusinessException;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -46,9 +48,15 @@ public class CompositePaymentProcessor {
     }
 
     public List<Payment> process(String bookingId, List<BookingCommand.PaymentDetail> paymentDetails) {
+        // POINT를 먼저 처리해 외부 PG 실패 시 취소 대상을 내부 시스템(포인트)으로 한정
+        // 반대 순서라면 외부 PG 취소 실패 시 불일치가 발생할 수 있음
+        List<BookingCommand.PaymentDetail> ordered = paymentDetails.stream()
+                .sorted(Comparator.comparingInt(d -> d.method() == PaymentMethod.POINT ? 0 : 1))
+                .toList();
+
         List<Payment> approved = new ArrayList<>();
         try {
-            for (BookingCommand.PaymentDetail detail : paymentDetails) {
+            for (BookingCommand.PaymentDetail detail : ordered) {
                 // PG 멱등키: bookingId + 결제수단 — 재시도 시 이중 청구 방지
                 String pgIdempotencyKey = bookingId + ":" + detail.method().name().toLowerCase();
 

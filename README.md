@@ -222,8 +222,8 @@ Swagger UI: `http://localhost/swagger-ui/index.html`
   "userId": 1001,
   "idempotencyKey": "user-1001-product-01JXX-20260510",
   "payments": [
-    { "method": "CREDIT_CARD", "amount": 120000 },
-    { "method": "POINT",       "amount": 30000  }
+    { "method": "POINT",       "amount": 30000  },
+    { "method": "CREDIT_CARD", "amount": 120000 }
   ]
 }
 ```
