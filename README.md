@@ -192,12 +192,12 @@ Swagger UI: `http://localhost/swagger-ui/index.html`
   "code": "CHECKOUT_SUCCESS",
   "message": "주문서 조회 성공",
   "data": {
-    "productId": "01JXXXXXXXXXXXXXXXXXX",
+    "productId": "0JXXXXXXXXXXX",
     "productName": "오션뷰 스위트",
     "price": 150000,
-    "checkInTime": "2026-05-10T15:00:00+09:00",
-    "checkOutTime": "2026-05-11T11:00:00+09:00",
-    "openAt": "2026-05-10T00:00:00+09:00",
+    "checkInTime": "2026-05-10T06:00:00Z",
+    "checkOutTime": "2026-05-11T02:00:00Z",
+    "openAt": "2026-05-09T15:00:00Z",
     "userPoint": 30000
   }
 }
@@ -218,7 +218,7 @@ Swagger UI: `http://localhost/swagger-ui/index.html`
 **Request Body**
 ```json
 {
-  "productId": "01JXXXXXXXXXXXXXXXXXX",
+  "productId": "0JXXXXXXXXXXX",
   "userId": 1001,
   "idempotencyKey": "user-1001-product-01JXX-20260510",
   "payments": [
@@ -238,8 +238,8 @@ Swagger UI: `http://localhost/swagger-ui/index.html`
   "code": "BOOKING_SUCCESS",
   "message": "예약 및 결제 완료",
   "data": {
-    "bookingId": "01JXXXXXXXXXXXXXXXXXX",
-    "productId": "01JXXXXXXXXXXXXXXXXXX",
+    "bookingId": "0JXXXXXXXXXXX",
+    "productId": "0JXXXXXXXXXXX",
     "status": "CONFIRMED",
     "totalAmount": 150000,
     "confirmedAt": "2026-05-10T00:00:01.234Z"
